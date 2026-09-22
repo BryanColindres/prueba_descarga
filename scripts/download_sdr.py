@@ -16,20 +16,34 @@ from pathlib import Path
 
 import requests
 
-URL = "https://www.imf.org/external/np/fin/data/rms_sdrv.aspx?tsvflag=Y"
+URL_PAGINA = "https://www.imf.org/external/np/fin/data/rms_sdrv.aspx"
+URL_DESCARGA = f"{URL_PAGINA}?tsvflag=Y"
 
 HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
         "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-    )
+    ),
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.9,es;q=0.8",
 }
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 
 
 def download() -> bytes:
-    resp = requests.get(URL, headers=HEADERS, timeout=30)
+    session = requests.Session()
+    session.headers.update(HEADERS)
+
+    # 1. Visita la página normal primero para que el servidor entregue
+    #    cookies de sesión válidas (igual que hace un navegador real).
+    pagina = session.get(URL_PAGINA, timeout=30)
+    pagina.raise_for_status()
+
+    # 2. Ahora sí pide el archivo, con Referer apuntando a la página que
+    #    "acabamos de visitar" y con las cookies ya en la sesión.
+    session.headers.update({"Referer": URL_PAGINA})
+    resp = session.get(URL_DESCARGA, timeout=30)
     resp.raise_for_status()
     return resp.content
 
